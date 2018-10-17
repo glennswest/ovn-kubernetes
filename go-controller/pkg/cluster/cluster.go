@@ -14,12 +14,13 @@ import (
 
 // OvnClusterController is the object holder for utilities meant for cluster management
 type OvnClusterController struct {
-	Kube                      kube.Interface
-	watchFactory              *factory.WatchFactory
-	masterSubnetAllocatorList []*netutils.SubnetAllocator
+	Kube                  kube.Interface
+	watchFactory          *factory.WatchFactory
+	masterSubnetAllocator *netutils.SubnetAllocator
 
+	ClusterIPNet          *net.IPNet
 	ClusterServicesSubnet string
-	ClusterIPNet          []CIDRNetworkEntry
+	HostSubnetLength      uint32
 
 	GatewayInit      bool
 	GatewayIntf      string
@@ -29,12 +30,6 @@ type OvnClusterController struct {
 	NodePortEnable   bool
 	OvnHA            bool
 	LocalnetGateway  bool
-}
-
-// CIDRNetworkEntry is the object that holds the definition for a single network CIDR range
-type CIDRNetworkEntry struct {
-	CIDR             *net.IPNet
-	HostSubnetLength uint32
 }
 
 const (
@@ -76,8 +71,6 @@ func setOVSExternalIDs(nodeName string, ids ...string) error {
 		".",
 		fmt.Sprintf("external_ids:ovn-encap-type=%s", config.Default.EncapType),
 		fmt.Sprintf("external_ids:ovn-encap-ip=%s", nodeIP),
-		fmt.Sprintf("external_ids:ovn-remote-probe-interval=%d",
-			config.Default.InactivityProbe),
 	}
 	for _, str := range ids {
 		args = append(args, "external_ids:"+str)

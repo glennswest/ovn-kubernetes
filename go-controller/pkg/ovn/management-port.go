@@ -17,7 +17,7 @@ const (
 	windowsOS = "windows"
 )
 
-func configureManagementPortWindows(clusterSubnet []string, clusterServicesSubnet,
+func configureManagementPortWindows(clusterSubnet, clusterServicesSubnet,
 	routerIP, interfaceName, interfaceIP string) error {
 	// Up the interface.
 	_, _, err := util.RunPowershell("Enable-NetAdapter", "-IncludeHidden", interfaceName)
@@ -72,30 +72,28 @@ func configureManagementPortWindows(clusterSubnet []string, clusterServicesSubne
 	}
 	interfaceIndex := stdout
 
-	for _, subnet := range clusterSubnet {
-		subnetIP, subnetIPNet, err := net.ParseCIDR(subnet)
-		if err != nil {
-			return fmt.Errorf("failed to parse clusterSubnet %v : %v", subnet, err)
-		}
-		// Checking if the route already exists, in which case it will not be created again
-		stdout, stderr, err = util.RunRoute("print", "-4", subnetIP.String())
-		if err != nil {
-			logrus.Debugf("Failed to run route print, stderr: %q, error: %v", stderr, err)
-		}
+	clusterIP, clusterIPNet, err := net.ParseCIDR(clusterSubnet)
+	if err != nil {
+		return fmt.Errorf("Failed to parse clusterSubnet %v : %v", clusterSubnet, err)
+	}
+	// Checking if the route already exists, in which case it will not be created again
+	stdout, stderr, err = util.RunRoute("print", "-4", clusterIP.String())
+	if err != nil {
+		logrus.Debugf("Failed to run route print, stderr: %q, error: %v", stderr, err)
+	}
 
-		if strings.Contains(stdout, subnetIP.String()) {
-			logrus.Debugf("Route was found, skipping route add")
-		} else {
-			// Windows route command requires the mask to be specified in the IP format
-			subnetMask := net.IP(subnetIPNet.Mask).String()
-			// Create a route for the entire subnet.
-			_, stderr, err = util.RunRoute("-p", "add",
-				subnetIP.String(), "mask", subnetMask,
-				routerIP, "METRIC", "2", "IF", interfaceIndex)
-			if err != nil {
-				logrus.Errorf("failed to run route add, stderr: %q, error: %v", stderr, err)
-				return err
-			}
+	if strings.Contains(stdout, clusterIP.String()) {
+		logrus.Debugf("Route was found, skipping route add")
+	} else {
+		// Windows route command requires the mask to be specified in the IP format
+		clusterMask := net.IP(clusterIPNet.Mask).String()
+		// Create a route for the entire subnet.
+		_, stderr, err = util.RunRoute("-p", "add",
+			clusterIP.String(), "mask", clusterMask,
+			routerIP, "METRIC", "2", "IF", interfaceIndex)
+		if err != nil {
+			logrus.Errorf("failed to run route add, stderr: %q, error: %v", stderr, err)
+			return err
 		}
 	}
 
@@ -129,7 +127,7 @@ func configureManagementPortWindows(clusterSubnet []string, clusterServicesSubne
 	return nil
 }
 
-func configureManagementPort(clusterSubnet []string, clusterServicesSubnet,
+func configureManagementPort(clusterSubnet, clusterServicesSubnet,
 	routerIP, interfaceName, interfaceIP string) error {
 	if runtime.GOOS == windowsOS {
 		// Return here for Windows, the commands for enabling the interface, setting the IP and adding the
@@ -156,18 +154,16 @@ func configureManagementPort(clusterSubnet []string, clusterServicesSubnet,
 		return err
 	}
 
-	for _, subnet := range clusterSubnet {
-		// Flush the route for the entire subnet (in case it was added before).
-		_, _, err = util.RunIP("route", "flush", subnet)
-		if err != nil {
-			return err
-		}
+	// Flush the route for the entire subnet (in case it was added before).
+	_, _, err = util.RunIP("route", "flush", clusterSubnet)
+	if err != nil {
+		return err
+	}
 
-		// Create a route for the entire subnet.
-		_, _, err = util.RunIP("route", "add", subnet, "via", routerIP)
-		if err != nil {
-			return err
-		}
+	// Create a route for the entire subnet.
+	_, _, err = util.RunIP("route", "add", clusterSubnet, "via", routerIP)
+	if err != nil {
+		return err
 	}
 
 	if clusterServicesSubnet != "" {
@@ -192,8 +188,8 @@ func configureManagementPort(clusterSubnet []string, clusterServicesSubnet,
 // 1. This logical port is via which a node can access all other nodes and the containers running inside them using the private IP addresses.
 // 2. When this port is created on the master node, the K8s daemons become reachable from the containers without any NAT.
 // 3. The nodes can health-check the pod IP addresses.
-func CreateManagementPort(nodeName, localSubnet,
-	clusterServicesSubnet string, clusterSubnet []string) error {
+func CreateManagementPort(nodeName, localSubnet, clusterSubnet,
+	clusterServicesSubnet string) error {
 	// Create a router port and provide it the first address in the 'local_subnet'.
 	ip, localSubnetNet, err := net.ParseCIDR(localSubnet)
 	if err != nil {

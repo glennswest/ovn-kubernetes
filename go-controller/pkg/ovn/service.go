@@ -19,12 +19,8 @@ func (ovn *Controller) syncServices(services []interface{}) {
 	// We will get nodeIP separately later.
 	nodeportServices := make(map[string][]string)
 
-	// For all externalIPs in k8s, we will populate the below map of slices
-	// with loadbalancer type services based on each protocol.
-	lbServices := make(map[string][]string)
-
-	// Go through the k8s services and populate 'clusterServices',
-	// 'nodeportServices' and 'lbServices'
+	// Go through the k8s services and populate 'clusterServices' and
+	// 'nodeportServices'
 	for _, serviceInterface := range services {
 		service, ok := serviceInterface.(*kapi.Service)
 		if !ok {
@@ -34,8 +30,7 @@ func (ovn *Controller) syncServices(services []interface{}) {
 		}
 
 		if service.Spec.Type != kapi.ServiceTypeClusterIP &&
-			service.Spec.Type != kapi.ServiceTypeNodePort &&
-			service.Spec.Type != kapi.ServiceTypeLoadBalancer {
+			service.Spec.Type != kapi.ServiceTypeNodePort {
 			continue
 		}
 
@@ -67,18 +62,6 @@ func (ovn *Controller) syncServices(services []interface{}) {
 				clusterServices[TCP] = append(clusterServices[TCP], key)
 			} else {
 				clusterServices[UDP] = append(clusterServices[UDP], key)
-			}
-
-			if len(service.Spec.ExternalIPs) == 0 {
-				continue
-			}
-			for _, extIP := range service.Spec.ExternalIPs {
-				key := fmt.Sprintf("%s:%d", extIP, svcPort.Port)
-				if protocol == TCP {
-					lbServices[TCP] = append(lbServices[TCP], key)
-				} else {
-					lbServices[UDP] = append(lbServices[UDP], key)
-				}
 			}
 		}
 	}
@@ -153,7 +136,7 @@ func (ovn *Controller) syncServices(services []interface{}) {
 					continue
 				}
 
-				if !stringSliceMembership(nodeportServices[protocol], port) && !stringSliceMembership(lbServices[protocol], vip) {
+				if !stringSliceMembership(nodeportServices[protocol], port) {
 					logrus.Debugf("Deleting stale nodeport vip %s in "+
 						"loadbalancer %s", vip, loadBalancer)
 					ovn.deleteLoadBalancerVIP(loadBalancer, vip)
@@ -211,6 +194,5 @@ func (ovn *Controller) deleteService(service *kapi.Service) {
 					"%s:%d %+v", service.Name, port, err)
 			}
 		}
-		ovn.handleExternalIPs(service, svcPort, ips, targetPort)
 	}
 }

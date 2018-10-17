@@ -376,7 +376,7 @@ func (cluster *OvnClusterController) nodePortWatcher() error {
 }
 
 func (cluster *OvnClusterController) initGateway(
-	nodeName string, clusterIPSubnet []string, subnet string) error {
+	nodeName, clusterIPSubnet, subnet string) error {
 	if cluster.LocalnetGateway {
 		// Create a localnet OVS bridge.
 		localnetBridgeName := "br-localnet"

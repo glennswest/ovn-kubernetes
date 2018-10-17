@@ -26,11 +26,6 @@ func (cluster *OvnClusterController) StartClusterNode(name string) error {
 	var err error
 	var node *kapi.Node
 	var subnet *net.IPNet
-	var clusterSubnets []string
-
-	for _, clusterSubnet := range cluster.ClusterIPNet {
-		clusterSubnets = append(clusterSubnets, clusterSubnet.CIDR.String())
-	}
 
 	for count > 0 {
 		if count != 300 {
@@ -72,8 +67,8 @@ func (cluster *OvnClusterController) StartClusterNode(name string) error {
 	}
 
 	err = ovn.CreateManagementPort(node.Name, subnet.String(),
-		cluster.ClusterServicesSubnet,
-		clusterSubnets)
+		cluster.ClusterIPNet.String(),
+		cluster.ClusterServicesSubnet)
 	if err != nil {
 		return err
 	}
@@ -82,7 +77,7 @@ func (cluster *OvnClusterController) StartClusterNode(name string) error {
 		if runtime.GOOS == windowsOS {
 			panic("Windows is not supported as a gateway node")
 		}
-		err = cluster.initGateway(node.Name, clusterSubnets,
+		err = cluster.initGateway(node.Name, cluster.ClusterIPNet.String(),
 			subnet.String())
 		if err != nil {
 			return err
@@ -121,16 +116,10 @@ func (cluster *OvnClusterController) updateOvnNode(masterIP string,
 		return err
 	}
 
-	var clusterSubnets []string
-
-	for _, clusterSubnet := range cluster.ClusterIPNet {
-		clusterSubnets = append(clusterSubnets, clusterSubnet.CIDR.String())
-	}
-
 	// Recreate logical switch and management port for this node
 	err = ovn.CreateManagementPort(node.Name, subnet,
-		cluster.ClusterServicesSubnet,
-		clusterSubnets)
+		cluster.ClusterIPNet.String(),
+		cluster.ClusterServicesSubnet)
 	if err != nil {
 		return err
 	}
@@ -140,7 +129,7 @@ func (cluster *OvnClusterController) updateOvnNode(masterIP string,
 		if runtime.GOOS == windowsOS {
 			panic("Windows is not supported as a gateway node")
 		}
-		err = cluster.initGateway(node.Name, clusterSubnets,
+		err = cluster.initGateway(node.Name, cluster.ClusterIPNet.String(),
 			subnet)
 		if err != nil {
 			return err
