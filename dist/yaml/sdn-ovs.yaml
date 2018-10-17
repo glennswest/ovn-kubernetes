@@ -29,8 +29,7 @@ spec:
       hostPID: true
       containers:
       - name: openvswitch
-        # image: "docker.io/glennswest/ovn-daemonset:latest"
-        image: "netdev31:5000/ovn-kube:latest"
+        image: "docker.io/glennswest/ovn-daemonset:latest"
         command:
         - /bin/bash
         - -c
