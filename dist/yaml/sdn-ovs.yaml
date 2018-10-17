@@ -29,7 +29,7 @@ spec:
       hostPID: true
       containers:
       - name: openvswitch
-        # image: "brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/ose-ovn-kubernetes:v3.12.0"
+        # image: "docker.io/glennswest/ovn-daemonset:latest"
         image: "netdev31:5000/ovn-kube:latest"
         command:
         - /bin/bash
