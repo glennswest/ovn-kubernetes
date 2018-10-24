@@ -220,8 +220,7 @@ echo "kind: SecurityContextConstraints anyuid -- $?"
 
 
 # get api server
-api=$(kubectl get po -n kube-system -o wide | gawk '/master-api/{ print $7 }')
-apiserver=https://${api}:8443
+apiserver=`oc whoami --show-server`
 
 # get the network cidr (master-config.yaml clusterNetworkCIDR)
 net_cidr=10.128.0.0/14
